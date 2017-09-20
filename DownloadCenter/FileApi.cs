@@ -27,7 +27,7 @@ namespace DownloadCenterFileApi
             }
             catch(Exception e)
             {
-                errorMessage = "[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + e.Message;
+                errorMessage = "[Download Center][ Exception ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + e.Message;
                 Console.WriteLine(e.Message); 
             }
             return new Tuple<string, string>(apiFileList, errorMessage);
@@ -64,23 +64,23 @@ namespace DownloadCenterFileApi
             return countRegion;
         }
 
-        public string UpdateSyncFileList(List<BlobStorage> kk)
+        public string UpdateSyncFileList(List<BlobStorage> FileID)
         {
             try
             {
                 Setting.GetApiFileUpdateURL();
                 http = new HttpHelper();
 
-                var getUpdateFileMessage = http.Post(Setting.DownloadCenterXmlSetting.apiFileUpdateURL, kk, HttpHelper.ContnetTypeEnum.Json);
+                var getUpdateFileMessage = http.Post(Setting.DownloadCenterXmlSetting.apiFileUpdateURL, FileID, HttpHelper.ContnetTypeEnum.Json);
 
                 if (getUpdateFileMessage == null)
                 {
-                    responseUpdateFileMessage = "[Download Center][Error]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Post Update File Api is Error";
+                    responseUpdateFileMessage = "[Download Center][  Error  ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Post Update File Api is Error";
                 }
                 else
                 {
                     responseFileIDApi = new JavaScriptSerializer().Deserialize<Dictionary<string, string>>(getUpdateFileMessage);
-                    responseUpdateFileMessage = "[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + responseFileIDApi["message"];
+                    responseUpdateFileMessage = "[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + responseFileIDApi["message"];
                 }
             }
             catch (Exception e)

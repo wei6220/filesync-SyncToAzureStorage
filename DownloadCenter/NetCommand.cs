@@ -15,20 +15,20 @@ namespace DownloadCenterNetCommand
         {
             if (cmdError.Contains("錯誤") || cmdError.Contains("error"))
             {
-                logStatus = "[Error]";
+                logStatus = "[  Error  ]";
                 logMessage = "Fail Login";
                 netCmdLoginStatus = false;
 
             }
             else if (successOutput.Contains("成功") || successOutput.Contains("successfully"))
             {
-                logStatus = "[Success]";
+                logStatus = "[ Success ]";
                 logMessage = "Success Login Target";
                 netCmdLoginStatus = true;
             }
             else
             {
-                logStatus = "[Unknown]";
+                logStatus = "[ Unknown ]";
                 logMessage = "Fail Login Target";
                 netCmdLoginStatus = false;
             }
@@ -40,7 +40,6 @@ namespace DownloadCenterNetCommand
         public bool ExeCommand()
         {
             string netCmd = "", netPath = "";
-
             netCmd = "net " + @"use \\" + Setting.DownloadCenterXmlSetting.targetServerIP + " " + Setting.DownloadCenterXmlSetting.targetServerPwd + " /user:misd\\" + Setting.DownloadCenterXmlSetting.targetServerLogin;
             netPath = @"C:\Windows\System32";
             BaseCmd(netCmd, netPath);

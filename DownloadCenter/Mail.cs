@@ -72,17 +72,17 @@ namespace DownloadCenterMail
 
                 if (responseSendEmail == null)
                 {
-                    sendEmailLog = "[Download Center][Error]Email Send fail";
+                    sendEmailLog = "[Download Center][  Error  ]Email Send fail";
                 }
                 else
                 {
                     EmailMessageLog = new System.Web.Script.Serialization.JavaScriptSerializer().Deserialize<Dictionary<string, string>>(responseSendEmail);
-                    sendEmailLog = "[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Email " + EmailMessageLog["message"];
+                    sendEmailLog = "[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Email " + EmailMessageLog["message"];
                 }
             }
             catch(Exception e)
             {
-                sendEmailLogException = "[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + e.Message;
+                sendEmailLogException = "[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + e.Message;
             }
             return new Tuple<string, string>(sendEmailLog, sendEmailLogException);
         }

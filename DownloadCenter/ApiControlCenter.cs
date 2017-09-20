@@ -5,7 +5,6 @@ using DownloadCenterLog;
 using DownloadCenterSetting;
 using DownloadCenterNetCommand;
 using DownloadCenterMail;
-using DownloadCenterSchedule;
 using System;
 using System.IO;
 using System.Diagnostics;
@@ -21,61 +20,65 @@ namespace DownloadCenter
 
         static void Main(string[] args)
         {
-            Setting.GetConfigureSetting();
-            Setting.ScheduleStartTimeSetting(Time.GetTimeNow(Time.TimeFormatType.YearSMonthSDayTimeChange));
-            Setting.SettingScheduleID(Time.GetTimeNow(Time.TimeFormatType.YearMonthDayHourMinute));
-
-            dynamic schedule = new Schedule();
-            dynamic fileController = new FileApi();
-            dynamic apiController = new ApiControlCenter();
-
-            var logFileContent = Log.ReadLog();
-            var getScheduleLength = schedule.GetScheduleStatus(logFileContent);
-            WriteLogMessage("[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Download Center Sync File To Azure Storage Schedule is Start",null);
-
-            apiController.syncAzureStoargeData = fileController.GetFileList().Item1;
-            WriteLogMessage(null, fileController.GetFileList().Item2);
-
-            var getAllAzureStorageRegion = fileController.SettingAzureStorageRegion(apiController.syncAzureStoargeData);
-            Setting.GetEachAzureStorageRegion(getAllAzureStorageRegion);
-            Setting.GetTotalAzureStorageRegion(fileController.GetAzureStorageTotalRegion());
-
-            if (getAllAzureStorageRegion != null)
+            try
             {
-                var getScheduleProcess = scheduleProcess();
+                Setting.GetConfigureSetting();
+                Setting.ScheduleStartTimeSetting(Time.GetTimeNow(Time.TimeFormatType.YearSMonthSDayTimeChange));
+                Setting.SettingScheduleID(Time.GetTimeNow(Time.TimeFormatType.YearMonthDayHourMinute));
 
-                if (getScheduleProcess)
+                dynamic fileController = new FileApi();
+                dynamic apiController = new ApiControlCenter();
+
+                var logFileContent = Log.ReadLog();
+                WriteLogMessage("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Download Center Sync File To Azure Storage Schedule Start", null);
+
+                apiController.syncAzureStoargeData = fileController.GetFileList().Item1;
+                WriteLogMessage(null, fileController.GetFileList().Item2);
+
+                var getAllAzureStorageRegion = fileController.SettingAzureStorageRegion(apiController.syncAzureStoargeData);
+                Setting.GetEachAzureStorageRegion(getAllAzureStorageRegion);
+                Setting.GetTotalAzureStorageRegion(fileController.GetAzureStorageTotalRegion());
+
+                if (getAllAzureStorageRegion != null)
                 {
-                    var login = new NetCommand();
-                    var loginStatus = login.ExeCommand();
+                    var getScheduleProcess = scheduleProcess();
 
-                    if (loginStatus)
+                    if (getScheduleProcess)
                     {
-                        GetSyncFileListApi(apiController,fileController);
+                        var login = new NetCommand();
+                        var loginStatus = login.ExeCommand();
+
+                        if (loginStatus)
+                        {
+                            GetSyncFileListApi(apiController, fileController);
+                        }
+                        else
+                        {
+                            Setting.EmailTemplateLogSetting("<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">Not login Target Server " + Setting.DownloadCenterXmlSetting.targetServerIP + "</font>", false);
+                        }
                     }
                     else
                     {
-                        Setting.EmailTemplateLogSetting("<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">Not login Target Server " + Setting.DownloadCenterXmlSetting.targetServerIP + "</font>", false);
+                        Setting.EmailTemplateLogSetting("<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">Wait for anoher schedule is finish</font>", false);
                     }
                 }
                 else
                 {
-                    Setting.EmailTemplateLogSetting("<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">Wait for anoher schedule is finish</font>", false);
-                }  
+                    Setting.EmailTemplateLogSetting("<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">Not Get Azure Storage Setting</font>", false);
+                }
+
+                Setting.ScheduleFinishTimeSetting(Time.GetTimeNow(Time.TimeFormatType.YearSMonthSDayTimeChange));
+
+                var mailSendLog = Mail.sendMail();
+                WriteLogMessage(mailSendLog.Item1, mailSendLog.Item2);
+
+                WriteLogMessage("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Download Center Sync File To Azure Storage Schedule Finish", null);
             }
-            else
+            catch(Exception e)
             {
-                Setting.EmailTemplateLogSetting("<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">Not Get Azure Storage Setting</font>", false);
+                WriteLogMessage("[Download Center][Exception]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + e.Message, null);
             }
-
-            Setting.ScheduleFinishTimeSetting(Time.GetTimeNow(Time.TimeFormatType.YearSMonthSDayTimeChange));
-
-            var mailSendLog = Mail.sendMail();
-            WriteLogMessage(mailSendLog.Item1, mailSendLog.Item2);
-
-            WriteLogMessage("[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Download Center Sync File To Azure Storage Schedule Finish",null);
         }
-
         public static bool scheduleProcess()
         {
             bool exeScheduleStatus = true;
@@ -95,11 +98,11 @@ namespace DownloadCenter
 
                 if(exeScheduleStatus)
                 {
-                    getScheduleLogMessage = "[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " The another DownloadCenter.exe is not execute";
+                    getScheduleLogMessage = "[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " The another DownloadCenter.exe is not execute";
                 }
                 else
                 {
-                    getScheduleLogMessage = "[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " The another DownloadCenter.exe is execute,wait for anoher schedule finish";
+                    getScheduleLogMessage = "[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " The another DownloadCenter.exe is execute,wait for anoher schedule finish";
                 }
             }
             catch(Exception e)
@@ -137,17 +140,18 @@ namespace DownloadCenter
                     if (getFileApiLength == 0)
                     {
                         Setting.EmailTemplateLogSetting("<font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">No file sync to Azure Storage", false);
+                        WriteLogMessage("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " No file sync to Azure Storage", null);
                     }
                 }
                 else
                 {
                     Setting.EmailTemplateLogSetting("<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">Not Get File List Api", false);
-                    WriteLogMessage("[Download Center][Error]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + "Get File List Api is Null", null);
+                    WriteLogMessage("[Download Center][  Error  ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + "Get File List Api is Null", null);
                 }
             }
             catch(Exception e)
             {
-                WriteLogMessage(null, "[Download Center][Error]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + e.Message);
+                WriteLogMessage(null, "[Download Center][  Error  ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + e.Message);
             }
         }
         
@@ -182,7 +186,7 @@ namespace DownloadCenter
                 }
 
                 blob.SyncTargetFileToAzureBlob(apiFileSource, apiFileTarget).Wait();
-                Log.WriteLog("[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Sync Azure Storage is Finish");
+                Log.WriteLog("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Sync Azure Storage is Finish");
                 fileIndex++;
             }
             return fileIndex;

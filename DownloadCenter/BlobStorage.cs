@@ -48,8 +48,8 @@ namespace DownloadCenterAzureStorage
 
             var TaskList = new List<Task>();
             var getSyncStorageData = azuerStorageConnection;
-            Log.WriteLog("[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Sync Azure Storage is Start");
-            Log.WriteLog("[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + syncSourcePath + "  --------------> " + "FileID:" + Setting.DownloadCenterXmlSetting.updateFileID + "," + "FileSize:" + Setting.DownloadCenterXmlSetting.updateFileSize);
+            Log.WriteLog("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Sync Azure Storage is Start");
+            Log.WriteLog("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + syncSourcePath + "  --------------> " + "FileID:" + Setting.DownloadCenterXmlSetting.updateFileID + "," + "FileSize:" + Setting.DownloadCenterXmlSetting.updateFileSize);
 
 
             foreach (var storageSetting in getSyncStorageData)
@@ -93,7 +93,7 @@ namespace DownloadCenterAzureStorage
             {
                 fileID = Setting.DownloadCenterXmlSetting.updateFileID;
                 fileSize = Setting.DownloadCenterXmlSetting.updateFileSize;
-                Log.WriteLog("[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " send {" + "id:" + fileID + "," + "size:" + fileSize + "} for Web Api");
+                Log.WriteLog("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " send {" + "id:" + fileID + "," + "size:" + fileSize + "} for Web Api");
 
                 responseFileList = new List<BlobStorage>();
                 responseFileList.Add(new BlobStorage { id = fileID, size = fileSize });
@@ -157,7 +157,7 @@ namespace DownloadCenterAzureStorage
                         if (sourcePathError)
                         {
                             sourcePathError = false;
-                            Log.WriteLog("[Download Center][Error]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Source File " + syncSourcePath + " not exists");
+                            Log.WriteLog("[Download Center][  Error  ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Source File " + syncSourcePath + " not exists");
                         }
                     }
 
@@ -167,8 +167,8 @@ namespace DownloadCenterAzureStorage
                         syncSuccessStartTime = Time.GetTimeNow(Time.TimeFormatType.YearSMonthSDayTimeChange);
                         GetSyncAzureStorageLog(); 
                         Setting.EmailTemplateLogSetting(mailSyncSuccess, true);
-                        Log.WriteLog("[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Soruce File " + syncSourcePath + " already copy to " + getStorageRegion + " "+ blob.StorageUri.PrimaryUri.AbsoluteUri);
-                        Log.WriteLog("[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + getStorageRegion + " Transfer operation completed in " + stopWatch.Elapsed.TotalSeconds + " seconds.");
+                        Log.WriteLog("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Soruce File " + syncSourcePath + " already copy to " + getStorageRegion + " "+ blob.StorageUri.PrimaryUri.AbsoluteUri);
+                        Log.WriteLog("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + getStorageRegion + " Transfer operation completed in " + stopWatch.Elapsed.TotalSeconds + " seconds.");
                         ConfirmUpdateFileIDList();
                     }
                 }

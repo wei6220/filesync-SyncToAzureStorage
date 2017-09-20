@@ -77,7 +77,6 @@
   <ItemGroup>
     <Compile Include="BlobStorage.cs" />
     <Compile Include="ApiControlCenter.cs" />
-    <Compile Include="Schedule.cs" />
     <Compile Include="NetCommand.cs" />
     <Compile Include="BaseCommand.cs" />
     <Compile Include="Mail.cs" />

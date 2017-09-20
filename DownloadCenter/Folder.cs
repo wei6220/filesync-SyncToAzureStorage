@@ -41,7 +41,7 @@ namespace DownloadCenterFolder
         {
             if (folderCreateSuccess)
             {
-                folderCreateMessage = "[Download Center][Success]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Downlocad Center Log Directory " + folderPath + " was created.";
+                folderCreateMessage = "[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Downlocad Center Log Directory " + folderPath + " was created.";
             }
             else if (folderCreateException)
             {

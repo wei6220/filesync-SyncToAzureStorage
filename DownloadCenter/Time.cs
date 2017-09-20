@@ -40,7 +40,7 @@ namespace DownloadCenterTime
             }
             else if (timeType == TimeFormatType.YearMonthDayHourMinute)
             {
-                dataTime = "yyyyMMddHmm";
+                dataTime = "yyyyMMddHHmm";
             }
             else
             {
@@ -65,11 +65,11 @@ namespace DownloadCenterTime
 
         public static string ToStringDataTime(DateTime getTimeStart, string getTimeStartFormat)
         {
-            string responseDataTime = "";
+            string _responseDataTime = "";
 
-            responseDataTime = getTimeStart.ToString(getTimeStartFormat);
+            _responseDataTime = getTimeStart.ToString(getTimeStartFormat);
 
-            return responseDataTime;
+            return _responseDataTime;
         }
     }
 }
