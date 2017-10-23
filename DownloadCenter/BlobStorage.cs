@@ -20,14 +20,17 @@ namespace DownloadCenterAzureStorage
         private string syncSourcePath, syncRenameFilePath;
         private string syncSuccessStartTime, syncErrorStartTime;
         private string mailSyncSuccess, mailSyncError;
+        private string fileSyncStatus, fileSyncMessage;
         private int countSyncAzureStorageError, countSyncAzureStorageSuccess, countSyncAzureStorageLog, countSyncAzureStorageFile, countSyncAzureStorageExist;
-        private bool sourcePathError;
+        private bool sourcePathError = true;
         private List<BlobStorage> responseFileList;
         private JToken azuerStorageConnection;
         dynamic fileUpdate;
         
         public string id { get; set; }
         public string size { get; set; }
+        public string status { get; set; }
+        public string message { get; set; }
 
         public void  SettingAzureStorageCoonection(JToken getAzureStorageConnection)
         {
@@ -68,14 +71,6 @@ namespace DownloadCenterAzureStorage
 
         private void SingleSyncAzureStorageEmailLog()
         {
-            if (countSyncAzureStorageError == Setting.DownloadCenterXmlSetting.syncAzureStorageTotalRegion)
-            {
-                mailSyncError = mailSyncError + "<tr><td bgcolor = \"#f28c9b\" width = \"12%\"><font size = \"2\" face = \"Verdana, sans-serif\">" + syncErrorStartTime + "</font></td>"
-                                              + "<td width = \"55%\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">" + syncSourcePath.Replace("\\", "/") + "</font></td><td width = \"30%\" ><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\"> No Such File or Directory" + "</font></td></tr>";
-                Setting.EmailTemplateLogSetting(mailSyncError, false);
-                
-            }
-
             if (countSyncAzureStorageError == Setting.DownloadCenterXmlSetting.syncAzureStorageTotalRegion || countSyncAzureStorageSuccess == Setting.DownloadCenterXmlSetting.syncAzureStorageTotalRegion || countSyncAzureStorageExist == Setting.DownloadCenterXmlSetting.syncAzureStorageTotalRegion)
             {
                 countSyncAzureStorageError = 0;
@@ -85,18 +80,49 @@ namespace DownloadCenterAzureStorage
             }
         }
 
+        private void ConfirmResponseFileApi()
+        {
+            if (countSyncAzureStorageSuccess == Setting.DownloadCenterXmlSetting.syncAzureStorageTotalRegion)
+            {
+                fileSyncStatus = "success";
+                fileSyncMessage = "";
+            }
+            else if(!sourcePathError)
+            {
+                fileSyncStatus = "error";
+                if (Setting.DownloadCenterXmlSetting.updateFileSize == "-1")
+                {
+                    fileSyncMessage = "No Such File or Directory";
+                }
+                else if(Setting.DownloadCenterXmlSetting.updateFileSize == "-2")
+                {
+                    fileSyncMessage = "Networking connection error";
+                }
+
+                mailSyncError = mailSyncError + "<tr><td bgcolor = \"#f28c9b\" width = \"12%\"><font size = \"2\" face = \"Verdana, sans-serif\">" + syncErrorStartTime + "</font></td>"
+                                              + "<td width = \"55%\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">" + syncSourcePath.Replace("\\", "/") + "</font></td><td width = \"30%\" ><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\"> " + fileSyncMessage + "</font></td></tr>";
+                Setting.EmailTemplateLogSetting(mailSyncError, false);
+
+                Log.WriteLog("[Download Center][  Error  ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Source File " + syncSourcePath + " " + fileSyncMessage);
+            }
+        }
+
         private void ConfirmUpdateFileIDList()
         {
             string fileID,fileSize;
 
-            if (countSyncAzureStorageSuccess == Setting.DownloadCenterXmlSetting.syncAzureStorageTotalRegion || countSyncAzureStorageExist == Setting.DownloadCenterXmlSetting.syncAzureStorageTotalRegion || (countSyncAzureStorageSuccess+ countSyncAzureStorageExist) == Setting.DownloadCenterXmlSetting.syncAzureStorageTotalRegion)
+            if (countSyncAzureStorageSuccess == Setting.DownloadCenterXmlSetting.syncAzureStorageTotalRegion || countSyncAzureStorageExist == Setting.DownloadCenterXmlSetting.syncAzureStorageTotalRegion || (countSyncAzureStorageSuccess+ countSyncAzureStorageExist) == Setting.DownloadCenterXmlSetting.syncAzureStorageTotalRegion || sourcePathError == false)
             {
                 fileID = Setting.DownloadCenterXmlSetting.updateFileID;
                 fileSize = Setting.DownloadCenterXmlSetting.updateFileSize;
+
+                ConfirmResponseFileApi(); 
+
                 Log.WriteLog("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " send {" + "id:" + fileID + "," + "size:" + fileSize + "} for Web Api");
 
                 responseFileList = new List<BlobStorage>();
-                responseFileList.Add(new BlobStorage { id = fileID, size = fileSize });
+
+                responseFileList.Add(new BlobStorage { id = fileID, size = fileSize, status = fileSyncStatus, message = fileSyncMessage});
 
                 fileUpdate = new FileApi();
                 var getUpdateFileMessage = fileUpdate.UpdateSyncFileList(responseFileList);
@@ -157,7 +183,7 @@ namespace DownloadCenterAzureStorage
                         if (sourcePathError)
                         {
                             sourcePathError = false;
-                            Log.WriteLog("[Download Center][  Error  ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Source File " + syncSourcePath + " not exists");
+                            ConfirmUpdateFileIDList();  
                         }
                     }
 

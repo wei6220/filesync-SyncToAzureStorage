@@ -25,17 +25,27 @@ namespace DownloadCenter
                 Setting.GetConfigureSetting();
                 Setting.ScheduleStartTimeSetting(Time.GetTimeNow(Time.TimeFormatType.YearSMonthSDayTimeChange));
                 Setting.SettingScheduleID(Time.GetTimeNow(Time.TimeFormatType.YearMonthDayHourMinute));
-
+                var getAllAzureStorageRegion = "";
                 dynamic fileController = new FileApi();
                 dynamic apiController = new ApiControlCenter();
 
-                var logFileContent = Log.ReadLog();
+                
                 WriteLogMessage("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Download Center Sync File To Azure Storage Schedule Start", null);
-
+     
                 apiController.syncAzureStoargeData = fileController.GetFileList().Item1;
+               
                 WriteLogMessage(null, fileController.GetFileList().Item2);
+         
+                if(apiController.syncAzureStoargeData != null)
+                {
+                    getAllAzureStorageRegion = fileController.SettingAzureStorageRegion(apiController.syncAzureStoargeData);
+                }
+                else
+                {
+                    getAllAzureStorageRegion = null;
+                }
+                 
 
-                var getAllAzureStorageRegion = fileController.SettingAzureStorageRegion(apiController.syncAzureStoargeData);
                 Setting.GetEachAzureStorageRegion(getAllAzureStorageRegion);
                 Setting.GetTotalAzureStorageRegion(fileController.GetAzureStorageTotalRegion());
 
@@ -151,7 +161,7 @@ namespace DownloadCenter
             }
             catch(Exception e)
             {
-                WriteLogMessage(null, "[Download Center][  Error  ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + e.Message);
+                WriteLogMessage(null, "[Download Center][  Error  ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + e.Message);
             }
         }
         
@@ -175,14 +185,22 @@ namespace DownloadCenter
                 ComposeSourceFilePathList(ref apiFileSource, true);
                 ComposeSourceFilePathList(ref apiFileTarget, false);
 
-                if (File.Exists(apiFileSource))
+                try
                 {
                     FileInfo file = new FileInfo(apiFileSource);
                     Setting.UpdateFileSizeSetting(file.Length);
                 }
-                else
+                catch(Exception e)
                 {
-                    Setting.UpdateFileSizeSetting(0);
+                    if(e.Message.Contains(apiFileSource))
+                    {
+                        Setting.UpdateFileSizeSetting(-1);
+                    }
+                    else
+                    {
+                        Setting.UpdateFileSizeSetting(-2);
+                    }
+                    Console.WriteLine(e.Message);    
                 }
 
                 blob.SyncTargetFileToAzureBlob(apiFileSource, apiFileTarget).Wait();

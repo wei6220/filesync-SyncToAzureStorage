@@ -24,6 +24,10 @@ namespace DownloadCenterFileApi
             {
                 http = new HttpHelper();
                 apiFileList = http.Get(Setting.DownloadCenterXmlSetting.apiFileListURL);
+                if(apiFileList == null)
+                {
+                    errorMessage = "[Download Center][  Error  ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + "Get File Api is Null";
+                }
             }
             catch(Exception e)
             {
