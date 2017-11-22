@@ -1,258 +1,256 @@
-﻿using DownloadCenterAzureStorage;
-using DownloadCenterTime;
-using DownloadCenterFileApi;
-using DownloadCenterLog;
-using DownloadCenterSetting;
-using DownloadCenterNetCommand;
-using DownloadCenterMail;
-using System;
+﻿using System;
 using System.IO;
 using System.Diagnostics;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace DownloadCenter
 {
     class ApiControlCenter
     {
-        private string apiFileSource, apiFileTarget, targetRenameFile;
-        private string syncAzureStoargeData = null;
-
         static void Main(string[] args)
         {
             try
             {
-                Setting.GetConfigureSetting();
-                Setting.ScheduleStartTimeSetting(Time.GetTimeNow(Time.TimeFormatType.YearSMonthSDayTimeChange));
-                Setting.SettingScheduleID(Time.GetTimeNow(Time.TimeFormatType.YearMonthDayHourMinute));
-                var getAllAzureStorageRegion = "";
-                dynamic fileController = new FileApi();
-                dynamic apiController = new ApiControlCenter();
+                Setting.SetConfigureSettings();
+                Setting.SetScheduleStartTime();
+                Setting.SetScheduleID(Time.GetNow(Time.TimeFormatType.YearMonthDayHourMinute));
+                Log.WriteLog("#######################################################################");
+                Log.WriteLog("Schedule Start.");
 
-                
-                WriteLogMessage("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Download Center Sync File To Azure Storage Schedule Start", null);
-     
-                apiController.syncAzureStoargeData = fileController.GetFileList().Item1;
-               
-                WriteLogMessage(null, fileController.GetFileList().Item2);
-         
-                if(apiController.syncAzureStoargeData != null)
+                var isScheduleReady = CheckScheduleReady("DownloadCenter");
+                if (isScheduleReady)
                 {
-                    getAllAzureStorageRegion = fileController.SettingAzureStorageRegion(apiController.syncAzureStoargeData);
-                }
-                else
-                {
-                    getAllAzureStorageRegion = null;
-                }
-                 
-
-                Setting.GetEachAzureStorageRegion(getAllAzureStorageRegion);
-                Setting.GetTotalAzureStorageRegion(fileController.GetAzureStorageTotalRegion());
-
-                if (getAllAzureStorageRegion != null)
-                {
-                    var getScheduleProcess = scheduleProcess();
-
-                    if (getScheduleProcess)
+                    var api = new FileApi();
+                    var syncData = api.GetSyncData();
+                    if (syncData.Item1 != null)
                     {
-                        var login = new NetCommand();
-                        var loginStatus = login.ExeCommand();
+                        Setting.SetAzureStorageRegion(api.GetStorageRegionList());
+                        Setting.SetAzureStorageRegionCount(api.GetStorageRegionCount());
+                    }
 
-                        if (loginStatus)
+                    if (!string.IsNullOrEmpty(Setting.RuntimeSettings.SyncAzureStorageRegion))
+                    {
+                        var loginCmd = new NetCommand();
+                        var isLogin = loginCmd.ExeCommand();
+                        if (isLogin)
                         {
-                            GetSyncFileListApi(apiController, fileController);
+                            SyncData(syncData.Item1);
+                            if (Setting.GetSyncResultList().Count > 0)
+                            {
+                                UpdateStatus(Setting.GetSyncResultList());
+                                Setting.SetSyncResultMessage(GenerateResultMessage());
+                            }
+                            else
+                            {
+                                Setting.SetSyncResultMessage(
+                               "<font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">"
+                               + "No file need to be sync </font>");
+                                Log.WriteLog("No file need to be sync");
+                            }
                         }
                         else
                         {
-                            Setting.EmailTemplateLogSetting("<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">Not login Target Server " + Setting.DownloadCenterXmlSetting.targetServerIP + "</font>", false);
+                            Setting.SetSyncResultMessage(
+                                "<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">"
+                                + "Not login Target Server " + Setting.Config.TargetServerIP + "</font>");
+                            Log.WriteLog("Not login target server " + Setting.Config.TargetServerIP, Log.Type.Failed);
                         }
                     }
                     else
                     {
-                        Setting.EmailTemplateLogSetting("<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">Wait for anoher schedule is finish</font>", false);
+                        Setting.SetSyncResultMessage(
+                            "<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">"
+                            + "Not Get Azure Storage Setting</font>");
+                        Log.WriteLog("Not get azure storage setting", Log.Type.Failed);
                     }
                 }
                 else
                 {
-                    Setting.EmailTemplateLogSetting("<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">Not Get Azure Storage Setting</font>", false);
+                    Setting.SetSyncResultMessage(
+                        "<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">"
+                        + "Wait for anoher schedule is finish</font>");
+                    Log.WriteLog("Wait for anoher schedule is finish", Log.Type.Failed);
                 }
 
-                Setting.ScheduleFinishTimeSetting(Time.GetTimeNow(Time.TimeFormatType.YearSMonthSDayTimeChange));
-
-                var mailSendLog = Mail.sendMail();
-                WriteLogMessage(mailSendLog.Item1, mailSendLog.Item2);
-
-                WriteLogMessage("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Download Center Sync File To Azure Storage Schedule Finish", null);
+                Setting.SetScheduleFinishTime();
+                var mail = new Mail();
+                mail.sendMail();
+                Log.WriteLog("Schedule Finish.");
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                WriteLogMessage("[Download Center][Exception]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + e.Message, null);
+                Log.WriteLog(e.Message, Log.Type.Exception);
             }
         }
-        public static bool scheduleProcess()
+
+        private static bool CheckScheduleReady(string processName)
         {
-            bool exeScheduleStatus = true;
-            string getScheduleLogMessage = null, getScheduleLogExceptionMessage = null;
+            bool isReady = true;
             try
             {
                 Process currentProcess = Process.GetCurrentProcess();
-
-                foreach (Process processRsyncSchedule in Process.GetProcessesByName("DownloadCenter"))
+                foreach (Process processRsyncSchedule in Process.GetProcessesByName(processName))
                 {
-
                     if (currentProcess.Id != processRsyncSchedule.Id)
+                        isReady = false;
+                }
+
+                if (!isReady)
+                    Log.WriteLog("The another DownloadCenter.exe is execute, wait for anoher schedule finish");
+            }
+            catch (Exception e)
+            {
+                Log.WriteLog(e.Message, Log.Type.Exception);
+            }
+            return isReady;
+        }
+
+        private static void SyncData(JObject syncData)
+        {
+            var storages = syncData["storages"];
+            var syncdata = syncData["syncdata"];
+
+            Setting.InitSyncResultList();
+
+            var blob = new StorageService(storages);
+            string id, size, sourcePath, targetPath;
+            int syncTotalCnt = 0;
+            foreach (var syncInfo in syncdata)
+            {
+               
+                size = "";
+                id = syncInfo["id"].ToString();
+                sourcePath = syncInfo["source"].ToString();
+                targetPath = syncInfo["target"].ToString();
+                sourcePath = ComposeFilePath(sourcePath, true);
+                targetPath = ComposeFilePath(targetPath, false);
+                Log.WriteLog("Start Sync to Azure Storage.(id:" + id + ")");
+                Log.WriteLog(sourcePath + " -> " + targetPath);
+
+                if (!File.Exists(sourcePath))
+                {
+                    Log.WriteLog("No such file or directory.", Log.Type.Failed);
+                    Setting.AddSyncResultList(new Setting.SyncResult
                     {
-                        exeScheduleStatus = false;
-                    }
+                        Id = id,
+                        Size = size,
+                        FinishTime = Time.GetNow(Time.TimeFormatType.YearSMonthSDayTimeChange),
+                        SourcePath = sourcePath,
+                        TargetPath = targetPath,
+                        Status = "Failed",
+                        Message = "No such file or directory.",
+                    });
+                    Log.WriteLog("Sync to azure storage is finish.");
+                    continue;
                 }
-
-                if(exeScheduleStatus)
-                {
-                    getScheduleLogMessage = "[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " The another DownloadCenter.exe is not execute";
-                }
-                else
-                {
-                    getScheduleLogMessage = "[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " The another DownloadCenter.exe is execute,wait for anoher schedule finish";
-                }
-            }
-            catch(Exception e)
-            {
-                getScheduleLogExceptionMessage = "[Download Center][Exception]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + e.Message;
-            }
-
-            WriteLogMessage(getScheduleLogMessage, getScheduleLogExceptionMessage);
-            return exeScheduleStatus;
-        }
-
-        private static void WriteLogMessage(string getResponseMessage, string getExceptionMessage)
-        {
-            if (getExceptionMessage != null)
-            {
-                Log.WriteLog(getExceptionMessage);
-            }
-            else
-            {
-                if (getResponseMessage != null)
-                {
-                    Log.WriteLog(getResponseMessage);
-                }
-            }
-        }
-
-        public static void GetSyncFileListApi(dynamic getApiController,dynamic getFileController)
-        {
-            try
-            {
-                var fileList = getFileController.GetFileList();
-                if (fileList != null)
-                {
-                    var getFileApiLength = getApiController.ParseFilePath(fileList.Item1);
-                    if (getFileApiLength == 0)
-                    {
-                        Setting.EmailTemplateLogSetting("<font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">No file sync to Azure Storage", false);
-                        WriteLogMessage("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " No file sync to Azure Storage", null);
-                    }
-                }
-                else
-                {
-                    Setting.EmailTemplateLogSetting("<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">Not Get File List Api", false);
-                    WriteLogMessage("[Download Center][  Error  ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + "Get File List Api is Null", null);
-                }
-            }
-            catch(Exception e)
-            {
-                WriteLogMessage(null, "[Download Center][  Error  ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " " + e.Message);
-            }
-        }
-        
-        private int ParseFilePath(string getFilesListProperty)
-        {
-            int fileIndex = 0;
-            var blob = new BlobStorage();
-
-            JObject fileList = (JObject)JsonConvert.DeserializeObject(getFilesListProperty);
-
-            var storageSetting = fileList["storages"];
-            var syncStorageData = fileList["syncdata"];
-            blob.SettingAzureStorageCoonection(storageSetting);
-
-            foreach (var getSyncStorageData in syncStorageData)
-            {
-                apiFileSource = getSyncStorageData["source"].ToString();
-                apiFileTarget = getSyncStorageData["target"].ToString();
-                Setting.UpdateFileIDSetting(getSyncStorageData["id"].ToString());
-
-                ComposeSourceFilePathList(ref apiFileSource, true);
-                ComposeSourceFilePathList(ref apiFileTarget, false);
 
                 try
                 {
-                    FileInfo file = new FileInfo(apiFileSource);
-                    Setting.UpdateFileSizeSetting(file.Length);
+                    FileInfo file = new FileInfo(sourcePath);
+                    size = file.Length.ToString();
+                    blob.SyncFileToAzureBlob(sourcePath, targetPath).Wait();
+                    Setting.AddSyncResultList(new Setting.SyncResult
+                    {
+                        Id = id,
+                        Size = size,
+                        FinishTime = Time.GetNow(Time.TimeFormatType.YearSMonthSDayTimeChange),
+                        SourcePath = sourcePath,
+                        TargetPath = targetPath,
+                        Status = "Success",
+                    });
+                    syncTotalCnt++;
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
-                    if(e.Message.Contains(apiFileSource))
+                    Log.WriteLog("Sync to azure storage is failed.", Log.Type.Exception);
+                    Setting.AddSyncResultList(new Setting.SyncResult
                     {
-                        Setting.UpdateFileSizeSetting(-1);
-                    }
-                    else
-                    {
-                        Setting.UpdateFileSizeSetting(-2);
-                    }
-                    Console.WriteLine(e.Message);    
+                        Id = id,
+                        Size = size,
+                        FinishTime = Time.GetNow(Time.TimeFormatType.YearSMonthSDayTimeChange),
+                        SourcePath = sourcePath,
+                        TargetPath = targetPath,
+                        Status = "Exception",
+                        Message = "Sync to azure storage is failed.",
+                    });
                 }
-
-                blob.SyncTargetFileToAzureBlob(apiFileSource, apiFileTarget).Wait();
-                Log.WriteLog("[Download Center][ Success ]Schedule ID:" + Setting.DownloadCenterXmlSetting.scheduleID + " Sync Azure Storage is Finish");
-                fileIndex++;
+                Log.WriteLog("Sync to szure storage is finish.");
             }
-            return fileIndex;
+            Setting.SetSyncFileTotalCount(syncTotalCnt);
         }
 
-        private void ComposeSourceFilePathList(ref string getApiFileSource, bool sourceFile)
+        private static void UpdateStatus(List<Setting.SyncResult> syncResultList)
         {
-            int targetFilePathHost = 0;
-            string[] composeFilePath;
-
-            if (sourceFile)
+            var updateList = new List<FileApi.UpdateInfo>();
+            syncResultList.ForEach(e =>
             {
-                composeFilePath = getApiFileSource.Split(new string[] { "\\", "/" }, StringSplitOptions.None);
-                getApiFileSource = "\\\\" + Setting.GetDownloadCenterConfigSetting("DownloadCenterSetting/TargetServer", "Ip") + "\\";
-            }
-            else
-            {
-                composeFilePath = getApiFileSource.Split(new char[] { '\\' });
-                getApiFileSource = "";
-            }
-
-            for (int composeFilePathIndex = 0; composeFilePathIndex < composeFilePath.Length; composeFilePathIndex++)
-            {
-                if (composeFilePathIndex == composeFilePath.Length - 1)
+                updateList.Add(new FileApi.UpdateInfo
                 {
-                    targetRenameFile = composeFilePath[composeFilePathIndex];
-                    getApiFileSource = getApiFileSource + composeFilePath[composeFilePathIndex];
+                    id = e.Id,
+                    size = e.Size,
+                    status = (e.Status.ToLower() == "failed" || e.Status.ToLower() == "exception") ? "error" : "success",
+                    message = e.Message,
+                });
+            });
+
+            if (updateList.Count > 0)
+            {
+                FileApi api = new FileApi();
+                api.UpdateSyncStatus(updateList);
+            }
+        }
+
+        private static string GenerateResultMessage()
+        {
+            string message = "";
+            Setting.GetSyncResultList().ForEach(e =>
+            {
+                if (e.Status.ToLower() == "failed" || e.Status.ToLower() == "exception")
+                {
+                    message += "<tr><td bgcolor = \"#f28c9b\" width = \"12%\"><font size = \"2\" face = \"Verdana, sans-serif\">" + e.FinishTime + "</font></td>"
+                          + "<td width = \"55%\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">" + e.SourcePath.Replace("\\", "/")
+                          + "</font></td><td width = \"30%\" ><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\"> " + e.Message + "</font></td></tr>";
                 }
                 else
                 {
-                    if (composeFilePath[composeFilePathIndex] == "")
-                    {
-                        continue;
-                    }
-                    else
-                    {
-                        if (sourceFile && targetFilePathHost != 1)
-                        {
-                            targetFilePathHost++;
-                        }
-                        else
-                        {
-                            getApiFileSource = getApiFileSource + composeFilePath[composeFilePathIndex] + "\\";
-
-                        }
-                    }
+                    message += "<tr><td width = \"22%\" bgcolor = \"#EEF4FD\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">"
+                    + e.FinishTime + "</font></td><td width = \"55%\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">"
+                    + e.SourcePath.Replace("\\", "/") + "</font></td><td width = \"30%\" ><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">already Copy to "
+                    + "Storage " + e.TargetPath.Replace("\\", "/") + "</font></td></tr>";
                 }
-            }
+            });
+            return message;
         }
+
+        private static string ComposeFilePath(string originPath, bool isSourceFile)
+        {
+            string[] pathChunks;
+            pathChunks = (isSourceFile) ? originPath.Split(new string[] { "\\", "/" }, StringSplitOptions.None) :
+                 originPath.Split(new char[] { '\\' });
+
+            string newPath = "";
+            bool isFirstRead = false;
+            for (int index = 0; index < pathChunks.Length; index++)
+            {
+                if (string.IsNullOrEmpty(pathChunks[index]))
+                    continue;
+
+                if (isSourceFile && !isFirstRead)
+                {
+                    newPath += "\\\\" + Setting.Config.TargetServerIP;
+                    isFirstRead = true;
+                    continue;
+                }
+
+                if (newPath != "")
+                    newPath += "\\";
+                newPath += pathChunks[index];
+            }
+
+            return newPath;
+        }
+
     }
 }

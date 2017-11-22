@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8" ?> 
+<DownloadCenterSetting>
+  <DownloadCenterLog Path="Log\"></DownloadCenterLog>
+  <Email URL="http://dfiintrtrains.eastasia.cloudapp.azure.com:8087/uas/api/notification/send">
+        <Option CC="sarah.wu@dfi.com,jerry.chen@dfi.com,howard.yu@dfi.com"></Option>
+        <Subject Content="【Download Center Batch】Sync Azure Storage Schedule"></Subject>
+  </Email>
+  <TargetServer Ip="172.18.0.36" Login="swservice" Pwd="A123456"></TargetServer>
+  <FileListApi URL="http://dfiintrtrains.eastasia.cloudapp.azure.com:8087/DownloadCenter/api/public/getpathmap"></FileListApi>
+  <UpdateSyncFileListApi URL="http://dfiintrtrains.eastasia.cloudapp.azure.com:8087/DownloadCenter/api/public/UpdateStatus"></UpdateSyncFileListApi>
+</DownloadCenterSetting>

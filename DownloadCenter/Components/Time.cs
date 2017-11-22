@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace DownloadCenterTime
+namespace DownloadCenter
 {
     class Time
     {
@@ -14,7 +14,7 @@ namespace DownloadCenterTime
             YearMonthDayHourMinute
         };
 
-        public static string GetTimeFormatType(TimeFormatType timeType)
+        public static string GetFormatType(TimeFormatType timeType)
         {
             string dataTime = "";
 
@@ -50,26 +50,10 @@ namespace DownloadCenterTime
             return dataTime;
         }
 
-        public static string GetTimeNow(TimeFormatType getDataTimeType = TimeFormatType.YearMonthDay)
+        public static string GetNow(TimeFormatType getDataTimeType = TimeFormatType.YearMonthDay)
         {
-            string dataCreateTime = "", dataTimeType = "";
-
-            DateTime dataTimeStart;
-
-            dataTimeType = GetTimeFormatType(getDataTimeType);
-            dataTimeStart = DateTime.Now;
-            dataCreateTime = ToStringDataTime(dataTimeStart, dataTimeType);
-
-            return dataCreateTime;
+            return DateTime.Now.ToString(GetFormatType(getDataTimeType));
         }
-
-        public static string ToStringDataTime(DateTime getTimeStart, string getTimeStartFormat)
-        {
-            string _responseDataTime = "";
-
-            _responseDataTime = getTimeStart.ToString(getTimeStartFormat);
-
-            return _responseDataTime;
-        }
+    
     }
 }

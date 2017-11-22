@@ -1,175 +1,155 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Xml;
 
-namespace DownloadCenterSetting
+namespace DownloadCenter
 {
     class Setting
     {
-        private static string _responseData = "";
-        private static string _syncAzureStorageRegion;
-        private static string _logPath, _logFile;
-        private static string _scheduleID,_scheduleStartTime, _scheduleFinishTime;
-        private static string _updateFileID, _updateFileIDList, _updateFileSize;
-        private static string _emailURL, _emailCCList, _emailSubjectContent;
-        private static string _mailSyncSuccessLog, _mailSyncErrorLog, _mailSyncRegion;
-        private static string _apiFileListURL, _apiFileUpdateURL;
-        private static string _targetServerIP, _targetServerLogin, _targetServerPassword;
-        private static int _mailSyncTotalLog;
-        private static int _syncAzureStorageTotalRegion;
-
-        private static bool xmlConfigStatus;
-        private static XmlDocument doc;
-
-        private static void GetDownloadCenterConfig(string getXmlSetting, string getXmlValue)
+        #region // ini settings
+        private static string _logPath,_emailURL, _emailCCList, _emailSubjectContent,
+            _apiFileListURL, _apiFileUpdateURL, _targetServerIP, _targetServerLogin, _targetServerPwd;
+        private static XmlDocument _configDoc;
+        public static void LoadConfigDoc()
         {
+            _configDoc = new XmlDocument();
+            _configDoc.Load("Setting.xml");
+        }
+        public static string GetSettingDocAttrValue(string nodePath, string attrKey)
+        {
+            string value = "";
             try
             {
-                doc = new XmlDocument();
-                doc.Load("DownloadCenter.xml");
-                
-                XmlNode main = doc.SelectSingleNode(getXmlSetting);
-                XmlElement element = (XmlElement)main;
-                _responseData = element.GetAttribute(getXmlValue);
+                if (_configDoc == null)
+                    LoadConfigDoc();
+                XmlElement element = (XmlElement)_configDoc.SelectSingleNode(nodePath);
+                value = element.GetAttribute(attrKey);
             }
             catch (Exception e)
             {
-                xmlConfigStatus = true;
-                _responseData = e.Message;
+                //value = e.Message;
+                //Console.WriteLine(e.Message);
+                Log.WriteLog(e.Message, Log.Type.Exception);
             }
+            return value;
         }
-
-        public static void SettingScheduleID(string getScheduleID)
+        public static void SetConfigureSettings()
         {
-            _scheduleID = getScheduleID;
+            SetTargetServerSettings();
+            SetFileListApiSettings();
+            SetUpdateSyncFileListApiSettings();
+            SetEmailSettings();
+            SetDownloadCenterLogSettings();
         }
-
-        public static void EmailSyncAzureStorageRegion(string getMailAzureStorageRegion)
-        {
-            _mailSyncRegion =  getMailAzureStorageRegion;
+        public static void SetTargetServerSettings() {
+            _targetServerIP = GetSettingDocAttrValue("DownloadCenterSetting/TargetServer", "Ip");
+            _targetServerLogin = GetSettingDocAttrValue("DownloadCenterSetting/TargetServer", "Login");
+            _targetServerPwd = GetSettingDocAttrValue("DownloadCenterSetting/TargetServer", "Pwd");
         }
-
-        public static void GetTotalAzureStorageRegion(int totalRegion)
+        public static void SetFileListApiSettings()
         {
-            _syncAzureStorageTotalRegion = totalRegion;
+            _apiFileListURL = GetSettingDocAttrValue("DownloadCenterSetting/FileListApi", "URL");
         }
-
-        public static void GetEachAzureStorageRegion(string getTotalStorageRegion)
+        public static void SetUpdateSyncFileListApiSettings()
         {
-            _syncAzureStorageRegion = getTotalStorageRegion;
+            _apiFileUpdateURL = GetSettingDocAttrValue("DownloadCenterSetting/UpdateSyncFileListApi", "URL");
         }
-
-        public static void GetConfigureSetting()
+        public static void SetEmailSettings()
         {
-            _targetServerIP = GetDownloadCenterConfigSetting("DownloadCenterSetting/TargetServer", "Ip");
-            _targetServerLogin = GetDownloadCenterConfigSetting("DownloadCenterSetting/TargetServer", "Login");
-            _targetServerPassword = GetDownloadCenterConfigSetting("DownloadCenterSetting/TargetServer", "Pwd");          
-            _apiFileListURL = GetDownloadCenterConfigSetting("DownloadCenterSetting/FileListApi", "URL");
+            _emailURL = GetSettingDocAttrValue("DownloadCenterSetting/Email", "URL");
+            _emailCCList = GetSettingDocAttrValue("DownloadCenterSetting/Email/Option", "CC");
+            _emailSubjectContent = GetSettingDocAttrValue("DownloadCenterSetting/Email/Subject", "Content");
         }
-
-        public static void GetApiFileUpdateURL()
+        public static void SetDownloadCenterLogSettings()
         {
-            _apiFileUpdateURL = GetDownloadCenterConfigSetting("DownloadCenterSetting/UpdateSyncFileListApi", "URL");
+            _logPath = GetSettingDocAttrValue("DownloadCenterSetting/DownloadCenterLog", "Path");
         }
-
-        public static void GetEmailSetting()
+        public struct Config
         {
-            _emailURL = GetDownloadCenterConfigSetting("DownloadCenterSetting/Email", "URL");
-            _emailCCList = GetDownloadCenterConfigSetting("DownloadCenterSetting/Email/Option", "CC");
-            _emailSubjectContent = GetDownloadCenterConfigSetting("DownloadCenterSetting/Email/Subject", "Content");
+            public static string TargetServerIP { get { return _targetServerIP; } }
+            public static string TargetServerLogin { get { return _targetServerLogin; } }
+            public static string TargetServerPwd { get { return _targetServerPwd; } }
+            public static string LogFilePath { get { return _logPath; } }
+            public static string ApiFileUpdateURL { get { return _apiFileUpdateURL; } }
+            public static string ApiFileListURL { get { return _apiFileListURL; } }
+            public static string EmailURL { get { return _emailURL; } }
+            public static string EmailCCList { get { return _emailCCList; } }
+            public static string EmailSubjectContent { get { return _emailSubjectContent; } }
         }
+        #endregion
 
-        public static void GetSyncAzureStorageFile(int countSyncFile)
+        #region // runtime var
+        private static string _scheduleID, _scheduleStartTime, _scheduleFinishTime, _syncResultMessage, _syncAzureStorageRegion;
+        private static int _syncFileTotalCount, _syncAzureStorageRegionCount;
+        public static void SetScheduleID(string id)
         {
-            _mailSyncTotalLog = countSyncFile;
+            _scheduleID = id;
         }
-
-        public static void EmailTemplateLogSetting(string logMesssage, bool logType)
+        public static void SetScheduleStartTime()
         {
-            if (logType)
+            _scheduleStartTime = Time.GetNow(Time.TimeFormatType.YearSMonthSDayTimeChange);
+        }
+        public static void SetScheduleFinishTime()
+        {
+            _scheduleFinishTime = Time.GetNow(Time.TimeFormatType.YearSMonthSDayTimeChange);
+        }
+        public static void SetAzureStorageRegionCount(int regionCnt)
+        {
+            _syncAzureStorageRegionCount = regionCnt;
+        }
+        public static void SetAzureStorageRegion(string regionList)
+        {
+            _syncAzureStorageRegion = regionList;
+        }
+        public static void SetSyncFileTotalCount(int count)
+        {
+            _syncFileTotalCount = count;
+        }
+        public static void SetSyncResultMessage(string message)
+        {
+            _syncResultMessage = message;
+        }
+        public struct RuntimeSettings
+        {
+            public static string ScheduleID { get { return _scheduleID; } }
+            public static string ScheduleStartTime { get { return _scheduleStartTime; } }
+            public static string ScheduleFinishTime { get { return _scheduleFinishTime; } }
+            public static string SyncResultMessage { get { return _syncResultMessage; } }
+            public static string SyncAzureStorageRegion { get { return _syncAzureStorageRegion; } }
+            public static int SyncAzureStorageRegionCount { get { return _syncAzureStorageRegionCount; } }
+            public static int SyncFileTotalCount { get { return _syncFileTotalCount; } }
+        }
+        #endregion
+
+        #region // 紀錄處理物件
+        private static List<SyncResult> _SyncResultList;
+        public static List<SyncResult> GetSyncResultList()
+        {
+            return _SyncResultList;
+        }
+        public static void InitSyncResultList()
+        {
+            _SyncResultList = null;
+            _SyncResultList = new List<SyncResult>();
+        }
+        public static void AddSyncResultList(SyncResult obj)
+        {
+            if (_SyncResultList == null)
             {
-                _mailSyncSuccessLog = logMesssage;
+                InitSyncResultList();
             }
-            else
-            {
-                _mailSyncErrorLog = logMesssage;
-            }
+            _SyncResultList.Add(obj);
         }
-
-        public static void UpdateFileIDSetting(string getFileID)
+        public struct SyncResult
         {
-            _updateFileID = getFileID;
+            public string Id { get; set; }
+            public string Size { get; set; }
+            public string Status { get; set; }
+            public string Message { get; set; }
+            public string FinishTime { get; set; }
+            public string SourcePath { get; set; }
+            public string TargetPath { get; set; }
         }
-
-        public static void UpdateFileIDListSetting(string getFileIDList)
-        {
-            _updateFileIDList = getFileIDList;
-        }
-
-        public static void UpdateFileSizeSetting(long getFileSize)
-        {
-            if(getFileSize == 0)
-            {
-                _updateFileSize = "";
-            }
-            else
-            {
-                _updateFileSize = getFileSize.ToString();
-            }  
-        }
-
-        public static void ScheduleStartTimeSetting(string timeNow)
-        {
-            _scheduleStartTime = timeNow;
-        }
-
-        public static void ScheduleFinishTimeSetting(string timeNow)
-        {
-            _scheduleFinishTime = timeNow;
-        }
-
-        public static void GetDownloadCenterLogSetting()
-        {
-            _logPath = GetDownloadCenterConfigSetting("DownloadCenterSetting/DownloadCenterLog", "Path");
-            _logFile = GetDownloadCenterConfigSetting("DownloadCenterSetting/DownloadCenterLog", "File");
-        }
-
-        public struct DownloadCenterXmlSetting
-        {
-            public static string targetServerIP { get { return _targetServerIP; } }
-            public static string targetServerLogin { get { return _targetServerLogin; } }
-            public static string targetServerPwd { get { return _targetServerPassword; } }
-            public static string logFilePath { get { return _logPath; } }
-            public static string logFileName { get { return _logFile; } }        
-            public static string syncAzureStorageRegion { get { return _syncAzureStorageRegion; } }
-            public static string scheduleStartTime { get { return _scheduleStartTime; } }
-            public static string scheduleFinishTime { get { return _scheduleFinishTime; } }
-            public static string scheduleID { get { return _scheduleID; } }
-            public static string apiFileUpdateURL { get { return _apiFileUpdateURL; } }
-            public static string apiFileListURL { get { return _apiFileListURL; } }
-            public static string updateFileID { get { return _updateFileID; } }
-            public static string updateFileIDList { get { return _updateFileIDList; } }
-            public static string updateFileSize { get { return _updateFileSize; } }
-            public static string emailURL { get { return _emailURL; } }
-            public static string emailCCList { get { return _emailCCList; } }
-            public static string emailSubjectContent { get { return _emailSubjectContent; } }
-            public static string mailSyncSuccessLog { get { return _mailSyncSuccessLog; } }
-            public static string mailSyncErrorLog { get { return _mailSyncErrorLog; } }
-            public static string mailSyncRegion { get { return _mailSyncRegion; } }
-            public static int mailSyncTotalLog { get { return _mailSyncTotalLog; } }
-            public static int syncAzureStorageTotalRegion { get { return _syncAzureStorageTotalRegion; } }
-        };
-
-        public static string GetDownloadCenterConfigSetting(string xmlSetting, string xmlValue)
-        {
-
-            GetDownloadCenterConfig(xmlSetting, xmlValue);
-
-            if (xmlConfigStatus)
-            {
-                
-            }
-
-            return _responseData;
-        }
+        #endregion
     }
 }

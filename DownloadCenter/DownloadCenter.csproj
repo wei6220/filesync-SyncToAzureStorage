@@ -32,9 +32,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="CommonLibrary, Version=1.3.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\Desktop\新增資料夾 (2)\CommonLibrary\bin\Release\CommonLibrary.dll</HintPath>
+    <Reference Include="CommonLibrary">
+      <HintPath>..\..\..\..\CommonLibrary\bin\Debug\CommonLibrary.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Azure.KeyVault.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Azure.KeyVault.Core.1.0.0\lib\net40\Microsoft.Azure.KeyVault.Core.dll</HintPath>
@@ -75,15 +74,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BlobStorage.cs" />
+    <Compile Include="Services\StorageService.cs" />
     <Compile Include="ApiControlCenter.cs" />
-    <Compile Include="NetCommand.cs" />
-    <Compile Include="BaseCommand.cs" />
-    <Compile Include="Mail.cs" />
-    <Compile Include="Time.cs" />
-    <Compile Include="Log.cs" />
-    <Compile Include="Folder.cs" />
-    <Compile Include="FileApi.cs" />
+    <Compile Include="Services\NetCommand.cs" />
+    <Compile Include="Services\BaseCommand.cs" />
+    <Compile Include="Services\Mail.cs" />
+    <Compile Include="Components\Time.cs" />
+    <Compile Include="Components\Log.cs" />
+    <Compile Include="Services\FileApi.cs" />
     <Compile Include="Setting.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

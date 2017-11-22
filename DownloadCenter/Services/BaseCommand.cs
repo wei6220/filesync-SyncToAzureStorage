@@ -2,13 +2,11 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace DownloadCenterRsyncBaseCmd
+namespace DownloadCenter
 {
     abstract class BaseCommand
     {
         public string cmdError { get; set; }
-        public string cmdSuccess { get; set; }
-        public string cmdException { get; set; }
         public string eventSuccess { get; set; }
         public string eventException { get; set; }
 
@@ -51,9 +49,7 @@ namespace DownloadCenterRsyncBaseCmd
             }
             catch (Exception e)
             {
-                cmdException = e.Message;
-                ErrorExceptionHandle(cmdException);
-                Console.WriteLine(e.Message);
+                ErrorExceptionHandle(e.Message);
             }
         }
 
