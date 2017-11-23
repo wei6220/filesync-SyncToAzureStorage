@@ -25,7 +25,7 @@ namespace DownloadCenter
                 }
 
                 bool isImportant = false;
-                Setting.GetSyncResultList().ForEach(e =>
+                SyncResultRecords.All().ForEach(e =>
                 {
                     if (e.Status.ToLower() == "failed" || e.Status.ToLower() == "exception")
                         isImportant = true;

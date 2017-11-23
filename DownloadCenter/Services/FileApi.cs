@@ -61,29 +61,32 @@ namespace DownloadCenter
             return _regionCnt;
         }
 
-        public string UpdateSyncStatus(List<UpdateInfo> FileID)
+        public string UpdateSyncStatus(List<UpdateInfo> info)
         {
-            string resultMessage;
+            string resultMessage = "";
             try
             {
                 _http = new HttpHelper();
-                var response = _http.Post(Setting.Config.ApiFileUpdateURL, FileID, HttpHelper.ContnetTypeEnum.Json);
+                var response = _http.Post(Setting.Config.ApiFileUpdateURL, info, HttpHelper.ContnetTypeEnum.Json);
                 if (string.IsNullOrEmpty(response))
                 {
-                    resultMessage = "Post Update File Status Api is Failed";
+                    resultMessage = "Post UpdateStatus Api is failed.";
                     Log.WriteLog(resultMessage, Log.Type.Failed);
                 }
                 else
                 {
                     var result = new JavaScriptSerializer().Deserialize<Dictionary<string, string>>(response);
-                    resultMessage = result["message"];
-                    //Log.WriteLog(resultMessage);
+                    if (result["status"] != null && result["status"].ToLower() == "error")
+                    {
+                        resultMessage = result["message"];
+                        Log.WriteLog(resultMessage, Log.Type.Failed);
+                    }
                 }
             }
             catch (Exception e)
             {
                 resultMessage = e.Message;
-                Log.WriteLog(resultMessage,Log.Type.Exception);
+                Log.WriteLog(resultMessage, Log.Type.Exception);
             }
             return resultMessage;
         }

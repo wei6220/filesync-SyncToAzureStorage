@@ -4,6 +4,7 @@ using System.Diagnostics;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace DownloadCenter
 {
@@ -13,15 +14,18 @@ namespace DownloadCenter
         {
             try
             {
+                Log.WriteLog("#######################################################################");
+                Log.WriteLog("Schedule Start.");
                 Setting.SetConfigureSettings();
                 Setting.SetScheduleStartTime();
                 Setting.SetScheduleID(Time.GetNow(Time.TimeFormatType.YearMonthDayHourMinute));
-                Log.WriteLog("#######################################################################");
-                Log.WriteLog("Schedule Start.");
+                SyncResultRecords.Init();
 
                 var isScheduleReady = CheckScheduleReady("DownloadCenter");
                 if (isScheduleReady)
                 {
+                    Thread.Sleep(60000);
+
                     var api = new FileApi();
                     var syncData = api.GetSyncData();
                     if (syncData.Item1 != null)
@@ -36,10 +40,11 @@ namespace DownloadCenter
                         var isLogin = loginCmd.ExeCommand();
                         if (isLogin)
                         {
+                            
                             SyncData(syncData.Item1);
-                            if (Setting.GetSyncResultList().Count > 0)
+                            if (SyncResultRecords.All().Count > 0)
                             {
-                                UpdateStatus(Setting.GetSyncResultList());
+                                //UpdateStatus(SyncResultRecords.All());
                                 Setting.SetSyncResultMessage(GenerateResultMessage());
                             }
                             else
@@ -112,14 +117,13 @@ namespace DownloadCenter
             var storages = syncData["storages"];
             var syncdata = syncData["syncdata"];
 
-            Setting.InitSyncResultList();
-
             var blob = new StorageService(storages);
-            string id, size, sourcePath, targetPath;
-            int syncTotalCnt = 0;
+            string id, size, sourcePath, targetPath, errorMessage;
+            SyncResultRecords.SyncResult resultRecord;
+            int SyncToAzureSuccessCount = 0;
             foreach (var syncInfo in syncdata)
             {
-               
+                errorMessage = "";
                 size = "";
                 id = syncInfo["id"].ToString();
                 sourcePath = syncInfo["source"].ToString();
@@ -132,7 +136,7 @@ namespace DownloadCenter
                 if (!File.Exists(sourcePath))
                 {
                     Log.WriteLog("No such file or directory.", Log.Type.Failed);
-                    Setting.AddSyncResultList(new Setting.SyncResult
+                    resultRecord = new SyncResultRecords.SyncResult
                     {
                         Id = id,
                         Size = size,
@@ -141,48 +145,60 @@ namespace DownloadCenter
                         TargetPath = targetPath,
                         Status = "Failed",
                         Message = "No such file or directory.",
-                    });
-                    Log.WriteLog("Sync to azure storage is finish.");
-                    continue;
+                    };
+                    errorMessage = UpdateStatus(new List<SyncResultRecords.SyncResult> { resultRecord });
+                }
+                else
+                {
+                    try
+                    {
+                        FileInfo file = new FileInfo(sourcePath);
+                        size = file.Length.ToString();
+                        blob.SyncFileToAzureBlob(sourcePath, targetPath).Wait();
+                        SyncToAzureSuccessCount++;
+                        resultRecord = new SyncResultRecords.SyncResult
+                        {
+                            Id = id,
+                            Size = size,
+                            FinishTime = Time.GetNow(Time.TimeFormatType.YearSMonthSDayTimeChange),
+                            SourcePath = sourcePath,
+                            TargetPath = targetPath,
+                            Status = "Success",
+                            Message = "Sync to azure storage is success.",
+                        };
+                        errorMessage = UpdateStatus(new List<SyncResultRecords.SyncResult> { resultRecord });
+                    }
+                    catch (Exception e)
+                    {
+                        Log.WriteLog(e.Message, Log.Type.Exception);
+                        resultRecord = new SyncResultRecords.SyncResult
+                        {
+                            Id = id,
+                            Size = size,
+                            FinishTime = Time.GetNow(Time.TimeFormatType.YearSMonthSDayTimeChange),
+                            SourcePath = sourcePath,
+                            TargetPath = targetPath,
+                            Status = "Exception",
+                            Message = "Sync to azure storage is failed.",
+                        };
+                        errorMessage = UpdateStatus(new List<SyncResultRecords.SyncResult> { resultRecord });
+                    }
                 }
 
-                try
+                if (errorMessage != "")
                 {
-                    FileInfo file = new FileInfo(sourcePath);
-                    size = file.Length.ToString();
-                    blob.SyncFileToAzureBlob(sourcePath, targetPath).Wait();
-                    Setting.AddSyncResultList(new Setting.SyncResult
-                    {
-                        Id = id,
-                        Size = size,
-                        FinishTime = Time.GetNow(Time.TimeFormatType.YearSMonthSDayTimeChange),
-                        SourcePath = sourcePath,
-                        TargetPath = targetPath,
-                        Status = "Success",
-                    });
-                    syncTotalCnt++;
+                    resultRecord.Status = "Failed";
+                    resultRecord.Message += (resultRecord.Message != "" ? " " : "") + errorMessage;
                 }
-                catch (Exception e)
-                {
-                    Log.WriteLog("Sync to azure storage is failed.", Log.Type.Exception);
-                    Setting.AddSyncResultList(new Setting.SyncResult
-                    {
-                        Id = id,
-                        Size = size,
-                        FinishTime = Time.GetNow(Time.TimeFormatType.YearSMonthSDayTimeChange),
-                        SourcePath = sourcePath,
-                        TargetPath = targetPath,
-                        Status = "Exception",
-                        Message = "Sync to azure storage is failed.",
-                    });
-                }
+                SyncResultRecords.Add(resultRecord);
                 Log.WriteLog("Sync to szure storage is finish.");
             }
-            Setting.SetSyncFileTotalCount(syncTotalCnt);
+            Setting.SetSyncFileTotalCount(SyncToAzureSuccessCount);
         }
 
-        private static void UpdateStatus(List<Setting.SyncResult> syncResultList)
+        private static string UpdateStatus(List<SyncResultRecords.SyncResult> syncResultList)
         {
+            var errorMsg = "";
             var updateList = new List<FileApi.UpdateInfo>();
             syncResultList.ForEach(e =>
             {
@@ -198,14 +214,15 @@ namespace DownloadCenter
             if (updateList.Count > 0)
             {
                 FileApi api = new FileApi();
-                api.UpdateSyncStatus(updateList);
+                errorMsg = api.UpdateSyncStatus(updateList);
             }
+            return errorMsg;
         }
 
         private static string GenerateResultMessage()
         {
             string message = "";
-            Setting.GetSyncResultList().ForEach(e =>
+            SyncResultRecords.All().ForEach(e =>
             {
                 if (e.Status.ToLower() == "failed" || e.Status.ToLower() == "exception")
                 {

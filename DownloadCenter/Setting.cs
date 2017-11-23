@@ -120,36 +120,5 @@ namespace DownloadCenter
             public static int SyncFileTotalCount { get { return _syncFileTotalCount; } }
         }
         #endregion
-
-        #region // 紀錄處理物件
-        private static List<SyncResult> _SyncResultList;
-        public static List<SyncResult> GetSyncResultList()
-        {
-            return _SyncResultList;
-        }
-        public static void InitSyncResultList()
-        {
-            _SyncResultList = null;
-            _SyncResultList = new List<SyncResult>();
-        }
-        public static void AddSyncResultList(SyncResult obj)
-        {
-            if (_SyncResultList == null)
-            {
-                InitSyncResultList();
-            }
-            _SyncResultList.Add(obj);
-        }
-        public struct SyncResult
-        {
-            public string Id { get; set; }
-            public string Size { get; set; }
-            public string Status { get; set; }
-            public string Message { get; set; }
-            public string FinishTime { get; set; }
-            public string SourcePath { get; set; }
-            public string TargetPath { get; set; }
-        }
-        #endregion
     }
 }
