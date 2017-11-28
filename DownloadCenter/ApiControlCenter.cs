@@ -14,18 +14,16 @@ namespace DownloadCenter
         {
             try
             {
-                Log.WriteLog("#######################################################################");
-                Log.WriteLog("Schedule Start.");
                 Setting.SetConfigureSettings();
                 Setting.SetScheduleStartTime();
                 Setting.SetScheduleID(Time.GetNow(Time.TimeFormatType.YearMonthDayHourMinute));
+                Log.WriteLog("#######################################################################");
+                Log.WriteLog("Schedule Start.");
                 SyncResultRecords.Init();
 
                 var isScheduleReady = CheckScheduleReady("DownloadCenter");
                 if (isScheduleReady)
                 {
-                    Thread.Sleep(60000);
-
                     var api = new FileApi();
                     var syncData = api.GetSyncData();
                     if (syncData.Item1 != null)
