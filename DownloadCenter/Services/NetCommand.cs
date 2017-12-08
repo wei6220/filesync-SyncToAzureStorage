@@ -6,7 +6,7 @@ namespace DownloadCenter
     {
         private string _cmdResponse = "";
 
-        public bool ExeCommand()
+        public bool ExeLoginCmd()
         {
             string netCmd = "", netPath = "";
             netCmd = "net " + @"use \\" + Setting.Config.TargetServerIP + " " + Setting.Config.TargetServerPwd + " /user:misd\\" + Setting.Config.TargetServerLogin;

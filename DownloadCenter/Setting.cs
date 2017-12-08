@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Xml;
 
@@ -93,13 +94,22 @@ namespace DownloadCenter
         {
             _scheduleFinishTime = Time.GetNow(Time.TimeFormatType.YearSMonthSDayTimeChange);
         }
-        public static void SetAzureStorageRegionCount(int regionCnt)
+        public static void SetAzureStorageRegion(JArray storages)
         {
-            _syncAzureStorageRegionCount = regionCnt;
-        }
-        public static void SetAzureStorageRegion(string regionList)
-        {
+            var regionList = "";
+            int regionCount = 0;
+            foreach (var storage in storages)
+            {
+                if (storage["region"] == null)
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(regionList))
+                    regionList += "、";
+                regionList += storage["region"];
+                regionCount++;
+            }
             _syncAzureStorageRegion = regionList;
+            _syncAzureStorageRegionCount = regionCount;
         }
         public static void SetSyncFileTotalCount(int count)
         {

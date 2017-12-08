@@ -10,8 +10,6 @@ namespace DownloadCenter
 {
     class FileApi
     {
-        private int _regionCnt = 0;
-        private string _regionList = "";
         private HttpHelper _http;
 
         public Tuple<JObject, string> GetSyncData()
@@ -31,18 +29,6 @@ namespace DownloadCenter
                 else
                 {
                     jResult = (JObject)JsonConvert.DeserializeObject(result);
-
-                    var storages = jResult["storages"];
-                    foreach (var storage in storages)
-                    {
-                        if (storage["region"] == null)
-                            continue;
-
-                        if (!string.IsNullOrWhiteSpace(_regionList))
-                            _regionList += "、";
-                        _regionList += storage["region"];
-                        _regionCnt++;
-                    }
                 }
             }
             catch (Exception e)
@@ -51,14 +37,6 @@ namespace DownloadCenter
                 Log.WriteLog(e.Message, Log.Type.Exception);
             }
             return Tuple.Create(jResult, errorMessage);
-        }
-        public string GetStorageRegionList()
-        {
-            return _regionList;
-        }
-        public int GetStorageRegionCount()
-        {
-            return _regionCnt;
         }
 
         public string UpdateSyncStatus(List<UpdateInfo> info)

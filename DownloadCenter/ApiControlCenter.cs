@@ -2,9 +2,7 @@
 using System.IO;
 using System.Diagnostics;
 using Newtonsoft.Json.Linq;
-using Newtonsoft.Json;
 using System.Collections.Generic;
-using System.Threading;
 
 namespace DownloadCenter
 {
@@ -22,65 +20,68 @@ namespace DownloadCenter
                 SyncResultRecords.Init();
 
                 var isScheduleReady = CheckScheduleReady("DownloadCenter");
-                if (isScheduleReady)
+                if (!isScheduleReady)
                 {
-                    var api = new FileApi();
-                    var syncData = api.GetSyncData();
-                    if (syncData.Item1 != null)
-                    {
-                        Setting.SetAzureStorageRegion(api.GetStorageRegionList());
-                        Setting.SetAzureStorageRegionCount(api.GetStorageRegionCount());
-                    }
-
-                    if (!string.IsNullOrEmpty(Setting.RuntimeSettings.SyncAzureStorageRegion))
-                    {
-                        var loginCmd = new NetCommand();
-                        var isLogin = loginCmd.ExeCommand();
-                        if (isLogin)
-                        {
-                            
-                            SyncData(syncData.Item1);
-                            if (SyncResultRecords.All().Count > 0)
-                            {
-                                //UpdateStatus(SyncResultRecords.All());
-                                Setting.SetSyncResultMessage(GenerateResultMessage());
-                            }
-                            else
-                            {
-                                Setting.SetSyncResultMessage(
-                               "<font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">"
-                               + "No file need to be sync </font>");
-                                Log.WriteLog("No file need to be sync");
-                            }
-                        }
-                        else
-                        {
-                            Setting.SetSyncResultMessage(
-                                "<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">"
-                                + "Not login Target Server " + Setting.Config.TargetServerIP + "</font>");
-                            Log.WriteLog("Not login target server " + Setting.Config.TargetServerIP, Log.Type.Failed);
-                        }
-                    }
-                    else
-                    {
-                        Setting.SetSyncResultMessage(
-                            "<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">"
-                            + "Not Get Azure Storage Setting</font>");
-                        Log.WriteLog("Not get azure storage setting", Log.Type.Failed);
-                    }
+                    Log.WriteLog("Waiting for anoher schedule is finish", Log.Type.Failed);
+                    Setting.SetSyncResultMessage(
+                        "<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">"
+                        + "Waiting for anoher schedule is finish</font>");
                 }
                 else
                 {
-                    Setting.SetSyncResultMessage(
-                        "<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">"
-                        + "Wait for anoher schedule is finish</font>");
-                    Log.WriteLog("Wait for anoher schedule is finish", Log.Type.Failed);
+                    //1.取SourceSata資料
+                    var api = new FileApi();
+                    JArray syncDatas = null;
+                    JArray storages = null;
+                    var sourceData = api.GetSyncData();
+                    if (sourceData.Item1 != null)
+                    {
+                        syncDatas = (JArray)sourceData.Item1["syncdata"];
+                        storages = (JArray)sourceData.Item1["storages"];
+                        Setting.SetAzureStorageRegion(storages);
+                        //Setting.SetAzureStorageRegionCount(api.GetStorageRegionCount());
+                    }
+
+                    if (syncDatas == null || syncDatas.Count == 0)
+                    {
+                        Log.WriteLog("No file need to be sync");
+                        Setting.SetSyncResultMessage(
+                                  "<font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">"
+                                  + "No file need to be sync </font>");
+                    }
+                    else if (string.IsNullOrEmpty(Setting.RuntimeSettings.SyncAzureStorageRegion))
+                    {
+                        Log.WriteLog("Not get azure storage setting", Log.Type.Failed);
+                        Setting.SetSyncResultMessage(
+                                "<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">"
+                                + "Not get azure storage setting</font>");
+                    }
+                    else
+                    {
+                        //2.登入StoreSimple
+                        var cmd = new NetCommand();
+                        var isLogin = cmd.ExeLoginCmd();
+                        if (!isLogin)
+                        {
+                            Log.WriteLog("Not login server " + Setting.Config.TargetServerIP, Log.Type.Failed);
+                            Setting.SetSyncResultMessage(
+                               "<font color = \"#c61919\" size = \"2\" face = \"Verdana, sans-serif\">"
+                               + "Not login server " + Setting.Config.TargetServerIP + "</font>");
+                        }
+                        else
+                        {
+                            //3. Sync data
+                            SyncData(syncDatas, storages);
+                            if (SyncResultRecords.All().Count > 0)
+                                Setting.SetSyncResultMessage(GenerateResultMessage());
+                        }
+                    }
                 }
 
                 Setting.SetScheduleFinishTime();
                 var mail = new Mail();
                 mail.sendMail();
-                Log.WriteLog("Schedule Finish.");
+                Log.WriteLog("Schedule Finish");
             }
             catch (Exception e)
             {
@@ -110,10 +111,10 @@ namespace DownloadCenter
             return isReady;
         }
 
-        private static void SyncData(JObject syncData)
+        private static void SyncData(JArray syncdata, JArray storages)
         {
-            var storages = syncData["storages"];
-            var syncdata = syncData["syncdata"];
+            //var storages = sourceData["storages"];
+            //var syncdata = sourceData["syncdata"];
 
             var blob = new StorageService(storages);
             string id, size, sourcePath, targetPath, errorMessage;
@@ -220,20 +221,23 @@ namespace DownloadCenter
         private static string GenerateResultMessage()
         {
             string message = "";
+            int count = 0;
             SyncResultRecords.All().ForEach(e =>
             {
+                count++;
                 if (e.Status.ToLower() == "failed" || e.Status.ToLower() == "exception")
                 {
-                    message += "<tr><td bgcolor = \"#f28c9b\" width = \"12%\"><font size = \"2\" face = \"Verdana, sans-serif\">" + e.FinishTime + "</font></td>"
-                          + "<td width = \"55%\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">" + e.SourcePath.Replace("\\", "/")
-                          + "</font></td><td width = \"30%\" ><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\"> " + e.Message + "</font></td></tr>";
+                    message += "<tr><td width = \"3%\" bgcolor = \"#EEF4FD\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">" + count + "</font></td>"
+                          + "<td width = \"19%\" bgcolor = \"#f28c9b\"><font size = \"2\" face = \"Verdana, sans-serif\">" + e.FinishTime + "</font></td>"
+                          + "<td width = \"39%\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">" + e.SourcePath.Replace("\\", "/") + "</font></td>"
+                          + "<td width = \"39%\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\"> " + e.Message + "</font></td></tr>";
                 }
                 else
                 {
-                    message += "<tr><td width = \"22%\" bgcolor = \"#EEF4FD\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">"
-                    + e.FinishTime + "</font></td><td width = \"55%\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">"
-                    + e.SourcePath.Replace("\\", "/") + "</font></td><td width = \"30%\" ><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">already Copy to "
-                    + "Storage " + e.TargetPath.Replace("\\", "/") + "</font></td></tr>";
+                    message += "<tr><td width = \"3%\" bgcolor = \"#EEF4FD\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">" + count + "</font></td>"
+                          + "<td width = \"19%\" bgcolor = \"#EEF4FD\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">" + e.FinishTime + "</font></td>"
+                          + "<td width = \"39%\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">" + e.SourcePath.Replace("\\", "/") + "</font></td>"
+                          + "<td width = \"39%\"><font color = \"#4A72A2\" size = \"2\" face = \"Verdana, sans-serif\">already Copy to Storage " + e.TargetPath.Replace("\\", "/") + "</font></td></tr>";
                 }
             });
             return message;

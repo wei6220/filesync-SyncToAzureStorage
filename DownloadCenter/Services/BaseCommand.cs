@@ -6,10 +6,6 @@ namespace DownloadCenter
 {
     abstract class BaseCommand
     {
-        public string cmdError { get; set; }
-        public string eventSuccess { get; set; }
-        public string eventException { get; set; }
-
         static ConsoleEventDelegate handler;
         private delegate bool ConsoleEventDelegate(int eventType);
 
@@ -37,8 +33,7 @@ namespace DownloadCenter
 
                 process.Start();
                 process.BeginOutputReadLine();
-                cmdError = process.StandardError.ReadToEnd();
-
+                var cmdError = process.StandardError.ReadToEnd();
                 if (cmdError != "")
                 {
                     Console.WriteLine(cmdError);
