@@ -1,0 +1,3 @@
+[submodule "library-ApplicationCommonLibrary"]
+	path = library-ApplicationCommonLibrary
+	url = http://dfigitea.eastasia.cloudapp.azure.com/Software/library-ApplicationCommonLibrary.git
