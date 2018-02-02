@@ -64,7 +64,7 @@ namespace DownloadCenter
             content = content.Replace("{SyncToDestination}", "Azure Storage");
             content = content.Replace("{SyncToDestinationFolder}", Setting.RuntimeSettings.SyncAzureStorageRegion);
             content = content.Replace("{SyncLog}", Setting.RuntimeSettings.SyncResultMessage);
-            return content;
+            return content.Replace("'", "\\'");
         }
 
         private string GetMailTemplate()
